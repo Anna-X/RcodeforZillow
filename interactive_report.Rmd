@@ -1,0 +1,99 @@
+---
+title: "Monthly Median Rent List Price ($) on Zillow, 1-Bedroom, in a given state, 2015"
+author: "Anna_X"
+date: "Thursday, January 11, 2016"
+output: html_document
+runtime: shiny
+---
+
+This R Markdown document for demonstating the Monthly Median Rent List Price ($) on Zillow for1-Bedroom in a given state in 2015 is made interactive using Shiny. All the data I used is downloaded from Zillow. The data from Oklahoma and Vermont are not available for this topic. So there are only 49 states rent price data.
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,include=FALSE}
+
+pkgs<-c("ggplot2","rgdal","leaflet","maps","sp","shiny")
+kgs<-lapply(pkgs,library,character.only=T)
+
+##formating data
+rental_state<-read.csv("State_MedianRentalPrice_1Bedroom_o.csv",check.names=FALSE)
+states_lookups<-read.csv("states.csv",check.names=FALSE)
+
+colnames(rental_state)[1]<-"State"
+
+rental_state<-merge(rental_state,states_lookups,by="State",all.x=TRUE)
+
+label<-as.character(rental_state$Abbreviation)
+
+rental_state_t<-t(rental_state)
+
+colnames(rental_state_t)<-rental_state_t[14,]
+rental_state_t<-rental_state_t[-1,]
+rental_state_t<-rental_state_t[-13,]
+rental_state_t<-as.data.frame(rental_state_t)
+
+date<-rownames(rental_state_t)
+rental_state_t$Date<-date
+
+spatialPolygon <- readOGR("us_states.json", "OGRGeoJSON")
+ 
+rental_state_m<- sp::merge(spatialPolygon, rental_state, by.x = "NAME",by.y = "State")
+
+m_rental<-as.data.frame(rental_state_m)
+
+```
+
+Demonstrating the time series data in interactive line chart to show the monthly rent price trend for each state in 2015.
+```{r, fig.width=4, fig.height=5,echo=FALSE}
+inputPanel(
+  selectInput("state", label = "Select state",
+              choices = c("AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA",
+               "HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA",
+               "MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY",
+               "NC","ND","OH","OR","PA","RI","SC","SD","TN","TX","UT",
+               "VA","WA","WV","WI","WY"), selected ="AL")
+)
+
+renderPlot({
+  ggplot(rental_state_t, aes_string(x="Date", y=input$state,group=1)) +geom_line(colour="#000099")+geom_point(colour="#000099") + ggtitle("Monthly Median Rent List Price ($) on Zillow, 1-Bedroom,\nin a given state, 2015") +theme(axis.text.x = element_text(angle=90))
+  
+})
+```
+The interactive histogram and map shows the distribution of median monthly rental of all states for each month.
+
+```{r,echo=FALSE}
+inputPanel(
+  numericInput("month", "Month in 2015:", 1, 
+              min = 1, max = 12))
+
+```
+
+```{r, fig.width=3, fig.height=3,echo=FALSE}
+renderPlot({
+
+  ggplot(data=rental_state, aes(rental_state[,1+input$month])) + geom_histogram(col="blue",aes(fill=..count..) )+   labs(title="Distribution of Monthly Median Rent List Price in US") +
+  labs(x="Median Rent List Price ($) on Zillow, 1-Bedroom", y="Number of States") + xlim(c(400,2500)) + ylim(c(0,15)) +scale_fill_gradient("Number of States")+theme(legend.position=c(0.8,0.8))
+  
+})
+
+renderLeaflet({
+  state_popup <- paste0("<h8>State: </h8>",
+                      m_rental$NAME,
+                      "<br><h8>Month in 2015: </h8>",
+                      input$month,
+                      "<br><h8>Median Rent List Price ($): </h8>",
+                      m_rental[,5+input$month]
+                      )
+
+pal <- colorNumeric("YlOrRd", domain=m_rental[,5+input$month])
+
+mymap<-leaflet(data = rental_state_m) %>% setView(lng = -93.5, lat = 37.0,zoom=3) %>% addTiles() %>% addPolygons(fillColor = ~pal(m_rental[,5+input$month]), fillOpacity = 0.6,color="Grey",weight=1,popup = state_popup) %>% addLegend("bottomleft", pal =pal,values =m_rental[,5+input$month],title = "Median Rent:",labFormat = labelFormat(prefix = "$"), opacity =0.7)
+                                                                                   mymap
+                                                                                   
+})
+
+```
+
+
