@@ -1,7 +1,6 @@
 ---
 title: "Monthly Median Rent List Price ($) on Zillow, 1-Bedroom, in a given state, 2015"
-author: "Anna_X"
-date: "Thursday, January 11, 2016"
+author: "Anna_X (email: eosxuyang@gmail.com)"
 output: html_document
 runtime: shiny
 ---
